@@ -81,14 +81,14 @@ const gauges = config.snowflake.config.metrics.map(metric => {
         labels,
         metrics
     } = metric;
-    
     for (let i in metrics) {
         const metricName = getFullyQualifiedMetricName(metricPrefix, category, metrics[i].name);
         // console.log('creating new Gauge metric with name:', metricName);
 
         let gauge = {};
         // console.log(labels);
-        if(typeof labels !== 'undefined') {
+
+        if (typeof labels !== 'undefined') {
             // console.log('creating metric with labels')
             // console.log(metrics[i], labels);
             // console.log('typeof labels',typeof labels);
@@ -111,7 +111,7 @@ const gauges = config.snowflake.config.metrics.map(metric => {
     }
 })
 
-;
+    ;
 (async () => {
     app.listen(port, () => {
         console.log(`Snowflake exporter listening at http://localhost:${port}`)
@@ -124,7 +124,7 @@ const gauges = config.snowflake.config.metrics.map(metric => {
     // const metricPrefix = config.snowflake.config.prefix;
     const fetchInterval = config.snowflake.config.default_fetch_interval;
     console.log(`Fetch interval set at ${fetchInterval}`);
-    
+
     // let gauges = [];
 
     const metricPromises = config.snowflake.config.metrics.map(async metric => {
@@ -171,39 +171,41 @@ const gauges = config.snowflake.config.metrics.map(metric => {
         while (true) {
             // console.log('statements', statements);
             const rows = await snow.query(statements);
-            
-            if (rows.length > 0) {
-                console.info(`Got ${rows.length} rows executing statement ${statements}`);
-                rows.forEach((val) => {
 
-                    for (let m in metrics) {
-                        for (let g in gauges) {
-                            if (getMetricNameFromFullyQualifiedMetricName(metricPrefix, category, gauges[g].name) == metrics[m].name) {
-                                if (val.hasOwnProperty(metrics[m].key.toUpperCase())) {
-                                    const metricValue = val[metrics[m].key.toUpperCase()];
+            console.info(`Got ${rows.length} rows executing statement ${statements}`);
+            for (let m in metrics) {
+                for (let g in gauges) {
+                    if (getMetricNameFromFullyQualifiedMetricName(metricPrefix, category, gauges[g].name) == metrics[m].name) {
+                        gauges[g].reset()
+                    }
+                }
+            }
+            rows.forEach((val) => {
+                for (let m in metrics) {
+                    for (let g in gauges) {
+                        if (getMetricNameFromFullyQualifiedMetricName(metricPrefix, category, gauges[g].name) == metrics[m].name) {
+                            if (val.hasOwnProperty(metrics[m].key.toUpperCase())) {
+                                const metricValue = val[metrics[m].key.toUpperCase()];
 
-                                    // some metrics don't have labels
-                                    if(typeof labels !== 'undefined') {
-                                        let labelValues = getLabelValues(labels, val);
-                                        // console.log('got label values', labelValues);
+                                // some metrics don't have labels
+                                if (typeof labels !== 'undefined') {
+                                    let labelValues = getLabelValues(labels, val);
+                                    // console.log('got label values', labelValues);
 
-                                        console.log(`Setting metric: ${metrics[m].name} with labels: ${JSON.stringify(labelValues)} and value: ${metricValue}`);
+                                    console.log(`Setting metric: ${metrics[m].name} with labels: ${JSON.stringify(labelValues)} and value: ${metricValue}`);
 
-                                        gauges[g].set(labelValues, metricValue);
-                                    } else {
-                                        console.log(`Setting metric: ${metrics[m].name} with value: ${metricValue}`);
-                                        gauges[g].set(metricValue);
-                                    }
+                                    gauges[g].set(labelValues, metricValue);
                                 } else {
-                                    throw new Error(`cannot find metric key: ${metrics[m].key} in query result for ${category}, check your config to make sure these match`)
+                                    console.log(`Setting metric: ${metrics[m].name} with value: ${metricValue}`);
+                                    gauges[g].set(metricValue);
                                 }
+                            } else {
+                                throw new Error(`cannot find metric key: ${metrics[m].key} in query result for ${category}, check your config to make sure these match`)
                             }
                         }
                     }
-                })
-            } else {
-                console.log(`Did not create metric for ${category}, no rows returned from SQL statement`);
-            }
+                }
+            })
             await new Promise((resolve) => setTimeout(resolve, fetchInterval * 1000));
         }
     });
