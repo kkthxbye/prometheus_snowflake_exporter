@@ -81,12 +81,11 @@ const gauges = config.snowflake.config.metrics.map(metric => {
         labels,
         metrics
     } = metric;
+    let gauges = [];
+
     for (let i in metrics) {
         const metricName = getFullyQualifiedMetricName(metricPrefix, category, metrics[i].name);
         // console.log('creating new Gauge metric with name:', metricName);
-
-        let gauge = {};
-        // console.log(labels);
 
         if (typeof labels !== 'undefined') {
             // console.log('creating metric with labels')
@@ -107,11 +106,12 @@ const gauges = config.snowflake.config.metrics.map(metric => {
                 help: help
             });
         }
-        return gauge;
+        gauges.push(gauge)
     }
-})
+    return gauges;
+}).flat();
 
-    ;
+
 (async () => {
     app.listen(port, () => {
         console.log(`Snowflake exporter listening at http://localhost:${port}`)
